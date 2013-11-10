@@ -469,7 +469,6 @@ func (p *Writer) WriteHeader() error {
 	binary.Write(w, p.Header.ByteOrder, p.Header.SnapshotLength)
 	binary.Write(w, p.Header.ByteOrder, p.Header.Network)
 
-	println(p.Header.SnapshotLength)
 	return w.err
 }
 
