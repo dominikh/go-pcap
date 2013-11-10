@@ -366,8 +366,8 @@ type PacketHeader struct {
 }
 
 type Packet struct {
-	PacketHeader
-	Data Payload
+	Header PacketHeader
+	Data   Payload
 }
 
 type Reader struct {
@@ -474,18 +474,18 @@ func (p *Writer) WriteHeader() error {
 
 func (p *Writer) WritePacket(packet Packet) error {
 	payload := packet.Data.Payload()
-	packet.OriginalLength = uint32(len(payload))
-	if packet.OriginalLength > p.Header.SnapshotLength {
+	packet.Header.OriginalLength = uint32(len(payload))
+	if packet.Header.OriginalLength > p.Header.SnapshotLength {
 		payload = payload[:p.Header.SnapshotLength]
 	}
-	packet.SavedLength = uint32(len(payload))
+	packet.Header.SavedLength = uint32(len(payload))
 
-	if packet.Timestamp.IsZero() {
-		packet.Timestamp = time.Now()
+	if packet.Header.Timestamp.IsZero() {
+		packet.Header.Timestamp = time.Now()
 	}
 
-	ts_sec := uint32(packet.Timestamp.Unix())
-	ts_usec := uint32(packet.Timestamp.Nanosecond())
+	ts_sec := uint32(packet.Header.Timestamp.Unix())
+	ts_usec := uint32(packet.Header.Timestamp.Nanosecond())
 	if !p.Header.Nanosecond {
 		ts_usec /= 1e3
 	}
@@ -493,8 +493,8 @@ func (p *Writer) WritePacket(packet Packet) error {
 	w := &errorWriter{w: p.w}
 	binary.Write(w, p.Header.ByteOrder, ts_sec)
 	binary.Write(w, p.Header.ByteOrder, ts_usec)
-	binary.Write(w, p.Header.ByteOrder, packet.SavedLength)
-	binary.Write(w, p.Header.ByteOrder, packet.OriginalLength)
+	binary.Write(w, p.Header.ByteOrder, packet.Header.SavedLength)
+	binary.Write(w, p.Header.ByteOrder, packet.Header.OriginalLength)
 	w.Write(payload)
 
 	return w.err
