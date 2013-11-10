@@ -1,3 +1,5 @@
+// Package pcap provides a basic, pure Go implementation for reading
+// and writing pcap files.
 package pcap
 
 import (
@@ -338,10 +340,15 @@ const (
 	DLT_BLUETOOTH_LE_LL = 251
 )
 
+// The Payload interface is primarily used when writing packets to a
+// pcap file. Upon calling WritePacket, the Payload() method will be
+// called exactly once.
 type Payload interface {
 	Payload() []byte
 }
 
+// The Bytes type implements the Payload interface by returning itself
+// and is used for the Data of packets read from a pcap file.
 type Bytes []byte
 
 func (b Bytes) Payload() []byte {
@@ -349,19 +356,33 @@ func (b Bytes) Payload() []byte {
 }
 
 type GlobalHeader struct {
-	VersionMajor      uint16
-	VersionMinor      uint16
-	ZoneCorrection    int32
+	// The major version of the pcap format. Should be 2.
+	VersionMajor uint16
+	// The minor version of the pcap format. Should be 4.
+	VersionMinor uint16
+	// The time offset of packet timestamps to UTC. When writing
+	// packages, this field should be 0.
+	ZoneCorrection int32
+	// The accuracy of time stamps. Usually set to 0.
 	TimestampAccuracy uint32
-	SnapshotLength    uint32
-	Network           DLT
-	Nanosecond        bool
-	ByteOrder         binary.ByteOrder
+	// The snapshot length for the capture.
+	SnapshotLength uint32
+	// The link-layer header type encapsulating all packets.
+	Network DLT
+	// True if timestamps use nanosecond precision. Note that not all
+	// tools support this.
+	Nanosecond bool
+	// The byte order used to store headers.
+	ByteOrder binary.ByteOrder
 }
 
 type PacketHeader struct {
-	Timestamp      time.Time
-	SavedLength    uint32
+	// The time of capture.
+	Timestamp time.Time
+	// The number of bytes of the packet that were actually saved.
+	// This will be at most GlobalHeader.SnapshotLength bytes.
+	SavedLength uint32
+	// The actual length of the packet when it was captured.
 	OriginalLength uint32
 }
 
@@ -370,15 +391,18 @@ type Packet struct {
 	Data   Payload
 }
 
+// Reader allows reading of pcap files.
 type Reader struct {
 	Header GlobalHeader
 	r      io.Reader
 }
 
+// NewReader returns a new pcap reader. It does not call ParseHeader.
 func NewReader(r io.Reader) *Reader {
 	return &Reader{r: r}
 }
 
+// ParseHeader parses the global pcap header.
 func (p *Reader) ParseHeader() error {
 	r := &errorReader{r: p.r}
 
@@ -411,6 +435,9 @@ func (p *Reader) ParseHeader() error {
 	return r.err
 }
 
+// ReadPacket reads the next packet from the pcap file. It will return
+// io.EOF if there are no more packages, or a different error in case
+// of invalid data.
 func (p *Reader) ReadPacket() (Packet, error) {
 	h := PacketHeader{}
 	r := &errorReader{r: p.r}
@@ -438,11 +465,21 @@ func (p *Reader) ReadPacket() (Packet, error) {
 	return Packet{h, Bytes(data)}, r.err
 }
 
+// Writer allows writing of pcap files.
 type Writer struct {
 	Header GlobalHeader
 	w      io.Writer
 }
 
+// NewWriter creates a new Writer. SnapshotLength will be set to 65535
+// and the byte order will default to little endian. Upon receiving
+// the writer you will need to at least set the DLT. You can also
+// adjust the snapshot length as well as the byte order and enable
+// nanosecond precision.
+//
+// If appending packets to an existing file, make sure that the header
+// matches the existing header in the file, for example by using a
+// Reader to extract and copy the header.
 func NewWriter(w io.Writer) *Writer {
 	return &Writer{
 		Header: GlobalHeader{
@@ -455,6 +492,9 @@ func NewWriter(w io.Writer) *Writer {
 	}
 }
 
+// WriteHeader writes the global pcap header. This must be called
+// exactly once if creating a new file. If appending to an existing file,
+// this method must not be called.
 func (p *Writer) WriteHeader() error {
 	magic := uint32(magicNumber)
 	if p.Header.Nanosecond {
@@ -472,6 +512,10 @@ func (p *Writer) WriteHeader() error {
 	return w.err
 }
 
+// WritePacket writes a packet to the pcap file. When creating a
+// packet, the header is optional and will be filled in by
+// WritePacket. You can, however, specify a header to set the
+// timestamp. All other fields will be ignored.
 func (p *Writer) WritePacket(packet Packet) error {
 	payload := packet.Data.Payload()
 	packet.Header.OriginalLength = uint32(len(payload))
