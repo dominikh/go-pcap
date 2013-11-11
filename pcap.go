@@ -515,11 +515,14 @@ func (p *Writer) WriteHeader() error {
 // WritePacket writes a packet to the pcap file. When creating a
 // packet, the header is optional and will be filled in by
 // WritePacket. You can, however, specify a header to set the
-// timestamp. All other fields will be ignored.
+// timestamp or the captured packet length. All other fields will be
+// ignored.
 func (p *Writer) WritePacket(packet Packet) error {
 	payload := packet.Data.Payload()
-	packet.Header.OriginalLength = uint32(len(payload))
-	if packet.Header.OriginalLength > p.Header.SnapshotLength {
+	if packet.Header.OriginalLength == 0 {
+		packet.Header.OriginalLength = uint32(len(payload))
+	}
+	if len(payload) > int(p.Header.SnapshotLength) {
 		payload = payload[:p.Header.SnapshotLength]
 	}
 	packet.Header.SavedLength = uint32(len(payload))
