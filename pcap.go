@@ -411,6 +411,10 @@ func (p *Reader) ParseHeader() error {
 	binary.Read(r, p.Header.ByteOrder, &magic)
 
 	switch magic {
+	case magicNumber:
+		// Nothing to do
+	case magicNumberNano:
+		p.Header.Nanosecond = true
 	case magicNumberR:
 		p.Header.ByteOrder = binary.BigEndian
 		magic = magicNumber
