@@ -10,11 +10,39 @@ import (
 	"time"
 )
 
+func TestMagicNumber(t *testing.T) {
+	tc := map[string]struct {
+		bo   binary.ByteOrder
+		nano bool
+	}{
+		"le_micro": {binary.LittleEndian, false},
+		"be_micro": {binary.BigEndian, false},
+		"le_nano":  {binary.LittleEndian, true},
+		"be_nano":  {binary.BigEndian, true},
+	}
+
+	for key, res := range tc {
+		r := NewReader(bytes.NewReader(testHeaders[key]))
+		if err := r.ParseHeader(); err != nil {
+			t.Errorf("Parsing header %s should have succeeded, got %s",
+				key, err)
+		}
+		if r.Header.ByteOrder != res.bo {
+			t.Errorf("Expected ByteOrder %s for header %s, got %s",
+				res.bo, key, r.Header.ByteOrder)
+		}
+		if r.Header.Nanosecond != res.nano {
+			t.Errorf("Expected Nanosecond = %t for header %s, got %t",
+				res.nano, key, r.Header.Nanosecond)
+		}
+	}
+}
+
 func TestHeaderParsing(t *testing.T) {
 	// TODO test correct application of ZoneCorrection
 	r := NewReader(bytes.NewReader(testPacket))
 	if err := r.ParseHeader(); err != nil {
-		t.Errorf("Parsing header should have succeeded, got %v", err)
+		t.Errorf("Parsing header should have succeeded, got %s", err)
 	}
 
 	expectedHeader := GlobalHeader{
