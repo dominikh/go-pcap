@@ -20,6 +20,7 @@ const (
 type errorReader struct {
 	r   io.Reader
 	err error
+	n   int
 }
 
 func (r *errorReader) Read(b []byte) (n int, err error) {
@@ -27,6 +28,7 @@ func (r *errorReader) Read(b []byte) (n int, err error) {
 		return 0, r.err
 	}
 	n, r.err = r.r.Read(b)
+	r.n += n
 	return n, r.err
 }
 
@@ -432,12 +434,15 @@ func (p *Reader) ParseHeader() error {
 	binary.Read(r, p.Header.ByteOrder, &p.Header.SnapshotLength)
 	binary.Read(r, p.Header.ByteOrder, &p.Header.Network)
 
+	if r.err == io.EOF && r.n > 0 {
+		return io.ErrUnexpectedEOF
+	}
 	return r.err
 }
 
 // ReadPacket reads the next packet from the pcap file. It will return
-// io.EOF if there are no more packages, or a different error in case
-// of invalid data.
+// io.EOF if there are no more packages, io.ErrUnexpectedEOF on short
+// reads or a different error in case of invalid data.
 func (p *Reader) ReadPacket() (Packet, error) {
 	h := PacketHeader{}
 	r := &errorReader{r: p.r}
@@ -462,7 +467,11 @@ func (p *Reader) ReadPacket() (Packet, error) {
 	data := make([]byte, h.SavedLength)
 	binary.Read(r, p.Header.ByteOrder, &data)
 
-	return Packet{h, Bytes(data)}, r.err
+	err := r.err
+	if r.err == io.EOF && r.n > 0 {
+		err = io.ErrUnexpectedEOF
+	}
+	return Packet{h, Bytes(data)}, err
 }
 
 // Writer allows writing of pcap files.
