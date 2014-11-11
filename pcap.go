@@ -1,6 +1,6 @@
 // Package pcap provides a basic, pure Go implementation for reading
 // and writing pcap files.
-package pcap
+package pcap // import "honnef.co/go/pcap"
 
 import (
 	"encoding/binary"
