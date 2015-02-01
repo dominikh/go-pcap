@@ -3,7 +3,7 @@
 ## Install
 
 ```sh
-go get -u honnef.co/go/pcap
+go get honnef.co/go/pcap
 ```
 
 ## Documentation
